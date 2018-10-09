@@ -1,6 +1,6 @@
 ## 脚本生成对应的ca证书
 
-### 启动
+### 玩一下
 #### 1. 产生对应的证书
     首先先执行目录crypto-config/ca_main.sh生成一系列的证书,conf.sh为注册登录ca成员的配置文件以及多少个组织；执行命令为:
         ./ca_main.sh all true

@@ -50,9 +50,9 @@ function registerAdmin() {
     attr_delegateRoles=$5
     csr_names=$6
     FileName=$7
-    fabric-ca-client enroll -u http://$cName:$cPwd@$msp_server_url:$msp_server_port -H ./$FileName/mspdata
+    fabric-ca-client enroll -u http://$caName:$caPwd@$msp_server_url:$msp_server_port -H ./$FileName/mspdata
     fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type client --id.affiliation "$id_affiliation" --csr.hosts "$csr_hosts" \
-    --id.attrs '"hf.Registrar.Roles=$attr_roles","hf.Registrar.DelegateRoles=$attr_delegateRoles",hf.Registrar.Attributes=*,hf.GenCRL=true,hf.Revoker=true,hf.AffiliationMgr=true,hf.IntermediateCA=true,role=admin:ecert' -H ./$FileName/mspdata
+    --id.attrs '"hf.Registrar.Roles=client,orderer,peer,user","hf.Registrar.DelegateRoles=client,orderer,peer,user",hf.Registrar.Attributes=*,hf.GenCRL=true,hf.Revoker=true,hf.AffiliationMgr=true,hf.IntermediateCA=true,role=admin:ecert' -H ./$FileName/mspdata
 
     rm -rf ./$FileName/mspdata/msp/keystore/*
 
@@ -61,10 +61,10 @@ function registerAdmin() {
    copyMSPDone $FileName ""
 
    echo "======================= tls ======================"
-   fabric-ca-client enroll -u http://$cName:$cPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
+   fabric-ca-client enroll -u http://$caName:$caPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
 
    fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type client --id.affiliation "$id_affiliation" --csr.hosts "$csr_hosts" \
-       --id.attrs '"hf.Registrar.Roles=$attr_roles","hf.Registrar.DelegateRoles=$attr_delegateRoles",hf.Registrar.Attributes=*,hf.GenCRL=true,hf.Revoker=true,hf.AffiliationMgr=true,hf.IntermediateCA=true,role=admin:ecert' -H ./$FileName/tlsdata/
+       --id.attrs '"hf.Registrar.Roles=client,orderer,peer,user","hf.Registrar.DelegateRoles=client,orderer,peer,user",hf.Registrar.Attributes=*,hf.GenCRL=true,hf.Revoker=true,hf.AffiliationMgr=true,hf.IntermediateCA=true,role=admin:ecert' -H ./$FileName/tlsdata/
 
    rm -rf ./$FileName/tlsdata/msp/keystore/*
    fabric-ca-client enroll -d --enrollment.profile tls --csr.hosts "$csr_hosts" --csr.names "$csr_names" -u http://$id_name:$commonPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/

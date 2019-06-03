@@ -32,6 +32,9 @@ org_csr_ou="" #org1
 #org_hosts={$org_pre_name}1.$common_dns #org1.example.com
 org_common_admin_name=Admin@ # Admin@org1.example.com
 org_pwd=adminpw
+org_admin_roles=client,orderer,peer,user
+org_admin_DelegateRoles=client,orderer,peer,user
+org_admin_csrNames=C=CN,O=org1.example.com,OU=client
 
 
 #peer 配置
@@ -56,6 +59,7 @@ peer_bccsp_sw_hash=SHA2
 peer_bccsp_sw_security=256
 peer_keystore=msp/keystore
 #peer_csr_ou={$org_pre_name}1 #org1
+peer_crs_names="C=CN,O=org1.example.com,OU=peer"
 
 #orderer 配置
 orderer_n=(orderer) 
@@ -78,6 +82,7 @@ orderer_bccsp_default=SW
 orderer_bccsp_sw_hash=SHA2
 orderer_bccsp_sw_security=256
 orderer_keystore=msp/keystore
+orderer_csr_names="C=CN,O=example.com,OU=orderer"
 
 #orderer admin top 配置
 #如 example.com的admin 似乎只有一个
@@ -96,3 +101,6 @@ top_csr_ou="" #org1
 orderer_admin_name=Admin@
 orderer_admin_host=localhost
 orderer_admin_pwd=adminpw
+orderer_admin_roles=client,orderer,peer,user
+orderer_admin_DelegateRoles=client,orderer,peer,user
+orderer_admin_csrNames="C=CN,O=example.com,OU=client"

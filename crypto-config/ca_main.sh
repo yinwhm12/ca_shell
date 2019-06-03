@@ -37,28 +37,84 @@ function tlsDOne() {
     cp -rf ./$dirName/tlsdata/msp/keystore/* ./$dirName/tls/server.key
   fi
 }
-#admin 注册登录
-function registerMsp(){
-    name=$1
-    FileName=$2
-    outfilename=$3
-    cName=$4
-    cPwd=$5
-    admin_Name=$6
-    echo " ----------------Register msp/tls ------------------"
+
+#注册所有的 admin 包括 orderer的 org的
+#fabric-ca-client register --id.name Admin@example.com --id.secret "12345" --id.type client --id.affiliation "com.example" --csr.hosts "Admin@example.com" \
+#    --id.attrs '"hf.Registrar.Roles=client,orderer,peer,user","hf.Registrar.DelegateRoles=client,orderer,peer,user",hf.Registrar.Attributes=*,hf.GenCRL=true,hf.Revoker=true,hf.AffiliationMgr=true,hf.IntermediateCA=true,role=admin:ecert' \
+#    -u http://admin:adminpw@localhost:7054 -H $baseDir/cadmin
+function registerAdmin() {
+    id_name=$1
+    id_affiliation=$2
+    csr_hosts=$3
+    attr_roles=$4
+    attr_delegateRoles=$5
+    csr_names=$6
+    FileName=$7
     fabric-ca-client enroll -u http://$cName:$cPwd@$msp_server_url:$msp_server_port -H ./$FileName/mspdata
-    fabric-ca-client register -H ./$FileName/mspdata --id.secret=$commonPwd
+    fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type client --id.affiliation "$id_affiliation" --csr.hosts "$csr_hosts" \
+    --id.attrs '"hf.Registrar.Roles=$attr_roles","hf.Registrar.DelegateRoles=$attr_delegateRoles",hf.Registrar.Attributes=*,hf.GenCRL=true,hf.Revoker=true,hf.AffiliationMgr=true,hf.IntermediateCA=true,role=admin:ecert' -H ./$FileName/mspdata
+
     rm -rf ./$FileName/mspdata/msp/keystore/*
-    fabric-ca-client enroll -u http://$name:$commonPwd@$msp_server_url:$msp_server_port -c ./$FileName/mspdata/$outfilename
 
-    copyMSPDone $FileName $admin_Name
+   fabric-ca-client enroll --csr.hosts "$csr_hosts" --csr.names "$csr_names" -u http://$id_name:$commonPwd@$msp_server_url:$msp_server_port -H ./$FileName/mspdata
 
-    fabric-ca-client enroll -u http://$cName:$cPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
-    fabric-ca-client register -H ./$FileName/tlsdata/ --id.secret=$commonPwd
-    rm -rf ./$FileName/tlsdata/msp/keystore/*
-    fabric-ca-client enroll -d --enrollment.profile tls -u http://$name:$commonPwd@$tls_server_url:$tls_server_port -c ./$FileName/tlsdata/$outfilename
+   copyMSPDone $FileName ""
 
-    tlsDOne $FileName
+   echo "======================= tls ======================"
+   fabric-ca-client enroll -u http://$cName:$cPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
+
+   fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type client --id.affiliation "$id_affiliation" --csr.hosts "$csr_hosts" \
+       --id.attrs '"hf.Registrar.Roles=$attr_roles","hf.Registrar.DelegateRoles=$attr_delegateRoles",hf.Registrar.Attributes=*,hf.GenCRL=true,hf.Revoker=true,hf.AffiliationMgr=true,hf.IntermediateCA=true,role=admin:ecert' -H ./$FileName/tlsdata/
+
+   rm -rf ./$FileName/tlsdata/msp/keystore/*
+   fabric-ca-client enroll -d --enrollment.profile tls --csr.hosts "$csr_hosts" --csr.names "$csr_names" -u http://$id_name:$commonPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
+   tlsDOne $FileName
+}
+
+#注册orderer
+#fabric-ca-client register --id.name orderer.example.com --id.secret "12345" --id.type orderer --id.affiliation "com.example" --csr.hosts "orderer.example.com" \
+#    --id.attrs "role=orderer:ecert" -u http://admin:adminpw@$CAUrl -H $baseDir/tlsadmin/Admin@example.com
+function registerOrderer() {
+  id_name=$1
+  FileName=$2
+  affiliation=$3
+  csr_host=$4
+  ordererAdminCa=$5
+  ordererAdminCaPwd=$6
+  fabric-ca-client enroll -u http://$ordererAdminCa:$ordererAdminCaPwd@$msp_server_url:$msp_server_port -H ./$FileName/mspdata
+  fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type orderer --id.affiliation "$affiliation" --csr.hosts "$csr_host" --id.attrs "role=orderer:ecert" -H $fileName/mspdata
+  rm -rf ./$FileName/mspdata/msp/keystore/*
+  fabric-ca-client enroll --csr.hosts "$csr_host" --csr.names "$orderer_csr_names" -u http://$name:$commonPwd@$msp_server_url:$msp_server_port -H  ./$FileName/mspdata
+  copyMSPDone $FileName $id_name
+  echo "======================= tls ======================"
+  fabric-ca-client enroll -u http://$ordererAdminCa:$ordererAdminCaPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
+  fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type orderer --id.affiliation "$affiliation" --csr.hosts "$csr_host" --id.attrs "role=orderer:ecert" -H ./$FileName/tlsdata
+  rm -rf ./$FileName/tlsdata/msp/keystore/*
+  fabric-ca-client enroll -d --enrollment.profile tls --csr.hosts "$csr_host" --csr.names "$orderer_csr_names" -u http://$name:$commonPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
+  tlsDOne $FileName
+}
+
+#注册peer
+function registerPeers(){
+  id_name=$1
+  FileName=$2
+  affiliation=$3
+  host=$4
+  orgAdminCa=$5
+  orgAdminCaPwd=$6
+  admin_Name=$7
+  fabric-ca-client enroll -u http://$orgAdminCa:$orgAdminCaPwd@$msp_server_url:$msp_server_port -H ./$FileName/mspdata
+  fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type peer --id.affiliation "$affiliation" --csr.hosts "$host" --id.attrs "role=peer:ecert" -H ./$FileName/mspdata
+  rm -rf ./$FileName/mspdata/msp/keystore/*
+  fabric-ca-client enroll --csr.hosts "$host" --csr.names "$peer_crs_names" -u http://$name:$commonPwd@$msp_server_url:$msp_server_port -H  ./$FileName/mspdata
+  copyMSPDone $FileName $admin_Name
+
+  echo "======================= tls ======================"
+  fabric-ca-client enroll -u http://$orgAdminCa:$orgAdminCaPwd@$tls_server_url:$tls_server_port -H ./$FileName/tlsdata/
+  fabric-ca-client register --id.name $id_name --id.secret "$commonPwd" --id.type peer --id.affiliation "$affiliation" --csr.hosts "$host"  --id.attrs "role=peer:ecert" -H  ./$FileName/tlsdata/
+  rm -rf ./$FileName/tlsdata/msp/keystore/*
+  fabric-ca-client enroll -d --enrollment.profile tls --csr.hosts "$host" --csr.names "$peer_crs_names" -u http://$name:$commonPwd@$tls_server_url:$tls_server_port -H  ./$FileName/tlsdata/
+  tlsDOne $FileName
 }
 
 
@@ -83,22 +139,22 @@ function createOrg(){
     outfilename=fabric-ca-client-config.yaml
     mspFlag=$1 #是否请求server 产生对应的msp/tls
     for i in ${org_n[@]}; do
-      org_personal_name=$org_pre_name$i
+      org_personal_name=$org_pre_name$i #org1
       fileName=$org_personal_name.$common_dns #org1.example.com
       orgN=$org_pre_name$i
       createOrgsDir $fileName/mspdata
       createOrgsDir $fileName/tlsdata
       echo " mkdir $fileName/mspdata and $fileName/tlsdata --- done ---"
-      host=$org_personal_name.$common_dns
-      name=$org_common_admin_name$host
-      affiliation=$common_dns_last.$org_personal_name
+      host=$org_personal_name.$common_dns # org1.example.com
+      name=$org_common_admin_name$host # Admin@org1.example.com
+      affiliation=$common_dns_last.$org_personal_name # com.example.org1
  #     outfilename=fabric-ca-client-config.yaml
-      createOrgFile $name $host $affiliation $fileName/mspdata/$outfilename $msp_url_port $orgN $host
-      createOrgFile $name $host $affiliation $fileName/tlsdata/$outfilename $tls_url_port $orgN $host
+      #createOrgFile $name $host $affiliation $fileName/mspdata/$outfilename $msp_url_port $orgN $host
+      #createOrgFile $name $host $affiliation $fileName/tlsdata/$outfilename $tls_url_port $orgN $host
       echo " mk file $fileName/mspdata/$outfilename and $fileName/tlsdata/$outfilename -----done------"
 
       if [ $mspFlag == true ]; then
-        registerMsp $name $fileName $outfilename $caName $caPwd ""
+        registerAdmin $name $affiliation $name $org_admin_roles $org_admin_DelegateRoles $org_admin_csrNames $$fileName
       fi
     done
 }
@@ -135,7 +191,7 @@ function createPeer(){
         createPeerFile $name $host $affiliation $peerFileName/tlsdata/$outfilename $tls_url_port $orgN $name
         echo " mk file $peerFileName/mspdata/$outfilename and $peerFileName/tlsdata/$outfilename ------done-----"
         if [ $mspFlag == true ]; then
-            registerMsp $name $peerFileName $outfilename $org_admin_name $org_pwd $org_name
+            registerPeers $name $peerFileName $affiliation $host $org_admin_name $org_pwd $org_name
         fi
     done
    done  
@@ -156,26 +212,24 @@ function createOrderer(){
    outfilename=fabric-ca-client-config.yaml
    mspFlag=$1 #是否请求server 产生对应的msp/tls
    for i in ${orderer_n[@]}; do
-    orderer_name=$orderer_pre_name$i.$common_dns
-    ordererN=$orderer_pre_name$i
-    affiliation=$common_dns_last
-   # for pi in ${peer_n[@]}; do
-        #orderer_personal_name=$orderer_pre_name$i 
+    orderer_name=$orderer_pre_name$i.$common_dns # orderer.example.com
+    ordererN=$orderer_pre_name$i # orderer
+    affiliation=$common_dns_last #com.example
+        #orderer_personal_name=$orderer_pre_name$i
         ordererFileName=$orderer_name
         createOrderersDir $ordererFileName/mspdata
         createOrderersDir $ordererFileName/tlsdata
         echo " mkdir $ordererFileName/mspdata and $ordererFileName/tlsdata ------done-----"
         host=$orderer_name
         name=$orderer_name
-        createOrdererFile $name $host $affiliation $ordererFileName/mspdata/$outfilename $msp_url_port $ordererN $name
-        createOrdererFile $name $host $affiliation $ordererFileName/tlsdata/$outfilename $tls_url_port $ordererN $name
+       # createOrdererFile $name $host $affiliation $ordererFileName/mspdata/$outfilename $msp_url_port $ordererN $name
+       # createOrdererFile $name $host $affiliation $ordererFileName/tlsdata/$outfilename $tls_url_port $ordererN $name
         echo " mk file $ordererFileName/mspdata/outfilename and $ordererFileName/tlsdata/outfilename -----done------"
 
         if [ $mspFlag == true ]; then
-            registerMsp $name $ordererFileName $outfilename $orderer_admin_name$common_dns $orderer_admin_pwd $orderer_name
+            registerOrderer $name $ordererFileName $affiliation $host $orderer_admin_name$common_dns $orderer_admin_pwd
         fi
-   # done
-   done  
+   done
 }
 
 ### orderer的管理员 只有一个
@@ -193,6 +247,7 @@ function createTopFile(){
 
 #orderer的管理员证书 函数弄成了 多个orderer管理员 根据orderer而定了
 #有问题的...
+#暂时别用
 function createTop(){
    ordererNum=${#orderer_n[@]} 
    topNum=${#top_n[@]}
@@ -230,21 +285,21 @@ function createTop(){
 # 正确的一个 orderer管理员 注册登录
 function createOrdererAdmin(){
     mspFlag=$1 #是否请求server 产生对应的msp/tls
-    outfilename=fabric-ca-client-config.yaml
+    #outfilename=fabric-ca-client-config.yaml
     affiliation=$common_dns_last
-    ordererAdminName=$orderer_admin_name$common_dns
+    ordererAdminName=$orderer_admin_name$common_dns #Admin@example.com
     topFileName=$ordererAdminName
     createTopDir $topFileName/mspdata
     createTopDir $topFileName/tlsdata
     echo " mkdir $topFileName/mspdata and $topFileName/tlsdata -----done------"
     host=$orderer_admin_host
     name=$topFileName
-    createTopFile $name $host $affiliation $topFileName/mspdata/$outfilename $msp_url_port 
-    createTopFile $name $host $affiliation $topFileName/tlsdata/$outfilename $tls_url_port 
+    #createTopFile $name $host $affiliation $topFileName/mspdata/$outfilename $msp_url_port
+    #createTopFile $name $host $affiliation $topFileName/tlsdata/$outfilename $tls_url_port
     echo " mk file $topFileName/mspdata/$outfilename and $topFileName/tlsdata/$outfilename ------done-----"
 
     if [ $mspFlag == true ]; then
-        registerMsp $name $topFileName $outfilename $caName $caPwd ""
+        registerAdmin $name $affiliation $name $orderer_admin_roles $orderer_admin_DelegateRoles $orderer_admin_csrNames $topFileName
     fi
 }
 
